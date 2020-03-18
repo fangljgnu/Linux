@@ -1,1 +1,108 @@
 
+rabbitmq是erlang语言编写的，安装rabbitmq之前，需要先安装erlang，这里用erlang的源码进行安装，erlang安装包官网下载地址：http://erlang.org/download/
+
+wget http://erlang.org/download/otp_src_21.1.tar.gz
+tar -zxvf otp_src_21.1.tar.gz
+cd otp_src_21.1
+# 这里要新建一个erlang文件夹，因为erlang编译安装默认是装在/usr/local下的bin和lib中，这里我们将他统一装到/usr/local/erlang中，方便查找和使用。
+mkdir -p /usr/local/erlang
+ 
+# 在编译之前，必须安装以下依赖包
+yum install -y make gcc gcc-c++ m4 openssl openssl-devel ncurses-devel unixODBC unixODBC-devel java java-devel
+ 
+./configure --prefix=/usr/local/erlang
+
+然后，直接执行make && makeinstall 进行编译安装
+
+make && make install
+
+然后将/usr/local/erlang/bin这个文件夹加入到环境变量中，加载以下即可直接使用。
+
+vi /etc/profile
+#########   添加如下内容   ###############
+PATH=$PATH:/usr/local/erlang/bin
+########################################
+source /etc/profile
+到此，既安装完成，直接输入erl，得到如下图得安装成功。
+OK，安装完erlang后，下面安装rabbitmq，安装之前，需要去官网查看一下rabbitmq版本对erlang版本的一个支持情况，
+官网地址：http://www.rabbitmq.com/which-erlang.html
+
+# 下载源码包
+wget https://github.com/rabbitmq/rabbitmq-server/releases/download/v3.7.8/rabbitmq-server-generic-unix-3.7.8.tar.xz
+# 解压
+tar -xvf rabbitmq-server-generic-unix-3.7.8.tar.xz -C /usr/local/
+# 添加环境变量
+vim /etc/profile
+------  添加如下内容  ------
+PATH=$PATH:/usr/local/rabbitmq_server-3.7.8/sbin
+ 
+ 
+# 重载一下环境变量
+source /etc/profile
+ 
+# 添加web管理插件
+rabbitmq-plugins enable rabbitmq_management
+默认rabbitmq是没有配置文件的，需要去官方github上，复制一个配置文件模版过来，最新的3.7.0以上的版本可以使用新的key-value形式的配置文件rabbitmq.conf，
+和原来erlang格式的advanced.config相结合，解决一下key-value形式不好定义的配置。
+github地址：https://github.com/rabbitmq/rabbitmq-server/tree/master/docs
+
+由于我这里安装的是最新的3.7.8。所以就使用新的配置文件，将配置文件复制到 /usr/local/rabbitmq_server-3.7.8/etc/rabbitmq/ 下
+ok，然后就可以启动rabbitmq服务了，其实没有配置文件也是可以启动服务的。
+
+# 后台启动rabbitmq服务
+rabbitmq-server -detached
+
+上面，启用了rabbitmq的管理插件，会有一个web管理界面，默认监听端口15672，将此端口在防火墙上打开，则可以访问web界面：
+使用默认的用户 guest / guest （此也为管理员用户）登陆，会发现无法登陆，报错：User can only log in via localhost。那是因为默认是限制了guest用户只能在本机登陆，也就是只能登陆localhost:15672。可以通过修改配置文件rabbitmq.conf，取消这个限制： loopback_users这个项就是控制访问的，如果只是取消guest用户的话，只需要loopback_users.guest = false 即可。
+
+注意：
+
+{loopback_users, [<<"guest">>]}  
+
+这个是erlang格式的原配置，后面是一个列表，可以自定义添加多个用户。是用来定义需要被限制登录的用户。默认是只有guest这一个用户。
+我们这里只需要设置loopback_users.guest = false 就可以解除guest的限制了。
+
+命令行：下面列举一下常用的一些命令行操作：
+
+服务启动停止：
+
+启动： rabbitmq-server -detached
+
+停止： rabbitmqctl stop
+
+插件管理：
+
+插件列表： rabbitmq-plugins list 
+
+启动插件： rabbitmq-plugins enable XXX   （XXX为插件名）
+
+停用插件： rabbitmq-plugins disable XXX
+
+用户管理：
+
+添加用户： rabbitmqctl add_user username password
+
+删除用户： rabbitmqctl delete_user username
+
+修改密码： rabbitmqctl change_password username newpassword
+
+设置用户角色： rabbitmqctl set_user_tags username tag
+
+列出用户： rabbitmqctl list_users
+
+权限管理：
+
+列出所有用户权限： rabbitmqctl list_permissions
+
+查看制定用户权限： rabbitmqctl list_user_permissions username
+
+清除用户权限： rabbitmqctl clear_permissions [-p vhostpath] username
+
+设置用户权限： rabbitmqctl set_permissions [-p vhostpath] username conf write read
+
+                          conf: 一个正则匹配哪些资源能被该用户访问
+
+                          write：一个正则匹配哪些资源能被该用户写入
+
+                          read：一个正则匹配哪些资源能被该用户读取
+
